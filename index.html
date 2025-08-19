@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Leverage Fee Calculator</title>
+  <style>
+    :root { --bg:#0b0f14; --card:#111824; --text:#e8eef7; --muted:#9fb2c8; --accent:#3b82f6; --ok:#22c55e; --warn:#f59e0b; }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,#0b0f14,#0a0f18 60%,#0b111c);color:var(--text);font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .wrap{max-width:980px;margin:40px auto;padding:24px}
+    .title{font-size:28px;font-weight:800;letter-spacing:.2px;margin:0 0 8px}
+    .subtitle{color:var(--muted);margin:0 0 24px}
+    .card{background:var(--card);border:1px solid #182233;border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.35);padding:22px}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+    .col-6{grid-column:span 6}
+    .col-4{grid-column:span 4}
+    .col-12{grid-column:span 12}
+    @media(max-width:800px){.col-6,.col-4{grid-column:span 12}}
+    label{display:block;font-weight:600;margin:0 0 6px}
+    input{width:100%;padding:14px 14px;border-radius:12px;border:1px solid #1f2b3b;background:#0e1520;color:var(--text);outline:none}
+    input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,130,246,.25)}
+    .row{display:flex;gap:12px;align-items:center}
+    .suffix{color:var(--muted);font-weight:600}
+    .note{color:var(--muted);font-size:13px}
+    .btn{display:inline-block;padding:12px 16px;border-radius:12px;background:var(--accent);color:#fff;text-decoration:none;font-weight:700;border:none;cursor:pointer}
+    .btn:active{transform:translateY(1px)}
+    .out-card{background:#0d1522;border:1px dashed #203046;border-radius:16px;padding:16px}
+    .kpi{display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px dashed #203046}
+    .kpi:last-child{border-bottom:none}
+    .big{font-size:22px;font-weight:800}
+    .mono{font-feature-settings:"tnum" on, "lnum" on; font-variant-numeric: tabular-nums}
+    .tag{display:inline-block;padding:4px 8px;border-radius:999px;background:#0e1a2a;border:1px solid #203046;color:var(--muted);font-size:12px;margin-left:8px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 class="title">Leverage Fee Calculator</h1>
+    <p class="subtitle">Enter your <strong>leverage (x)</strong> and <strong>margin amount</strong>. We calculate maker (0.01%) and taker (0.04%) fees on the <em>notional</em> = margin × leverage.</p>
+
+    <div class="card">
+      <div class="grid">
+        <div class="col-6">
+          <label for="margin">Margin Entered</label>
+          <div class="row">
+            <input id="margin" type="number" min="0" step="0.01" placeholder="e.g. 100" />
+            <span class="suffix">USDT</span>
+          </div>
+          <p class="note">Money you put into the position.</p>
+        </div>
+        <div class="col-6">
+          <label for="lev">Leverage (×)</label>
+          <input id="lev" type="number" min="1" step="0.1" placeholder="e.g. 10" />
+          <p class="note">Position size = margin × leverage.</p>
+        </div>
+
+        <div class="col-4">
+          <label for="maker">Maker fee %</label>
+          <input id="maker" type="number" min="0" step="0.0001" value="0.01" />
+        </div>
+        <div class="col-4">
+          <label for="taker">Taker fee %</label>
+          <input id="taker" type="number" min="0" step="0.0001" value="0.04" />
+        </div>
+        <div class="col-4" style="display:flex;align-items:flex-end">
+          <button class="btn" id="calc">Calculate</button>
+        </div>
+
+        <div class="col-12">
+          <div class="out-card">
+            <div class="kpi">
+              <div>Notional (margin × leverage)</div>
+              <div class="big mono" id="notional">—</div>
+            </div>
+            <div class="kpi">
+              <div>Maker fee (entry or exit) <span class="tag" id="makerPct">0.01%</span></div>
+              <div class="big mono" id="makerFee">—</div>
+            </div>
+            <div class="kpi">
+              <div>Taker fee (entry or exit) <span class="tag" id="takerPct">0.04%</span></div>
+              <div class="big mono" id="takerFee">—</div>
+            </div>
+            <div class="kpi">
+              <div>Round-trip cost (Maker + Maker)</div>
+              <div class="mono" id="rtMM">—</div>
+            </div>
+            <div class="kpi">
+              <div>Round-trip cost (Taker + Taker)</div>
+              <div class="mono" id="rtTT">—</div>
+            </div>
+            <div class="kpi">
+              <div>Round-trip cost (Maker entry + Taker exit)</div>
+              <div class="mono" id="rtMT">—</div>
+            </div>
+            <div class="kpi">
+              <div>Total fees (Maker + Taker both sides)</div>
+              <div class="big mono" id="totalFees">—</div>
+            </div>
+            <div class="kpi">
+              <div>Fees as % of <em>margin</em> (Taker one-way)</div>
+              <div class="mono" id="feeOnMargin">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="note" style="margin-top:14px">Formulae: <br>Notional = margin × leverage.<br>MakerFee = notional × (maker% / 100).<br>TakerFee = notional × (taker% / 100).<br>Round-trip = fee × 2. Total fees = makerFee + takerFee (entry + exit).</p>
+  </div>
+
+  <script>
+    const $ = (id)=>document.getElementById(id);
+    function fmt(n){ if(isNaN(n)) return "—"; return new Intl.NumberFormat(undefined,{style:'currency',currency:'USD',maximumFractionDigits:6}).format(n); }
+    function pct(n){ if(isNaN(n)) return "—"; return n.toFixed(4)+"%"; }
+
+    function calc(){
+      const margin = parseFloat($("margin").value);
+      const lev = parseFloat($("lev").value);
+      const makerP = parseFloat($("maker").value);
+      const takerP = parseFloat($("taker").value);
+      if(!(margin>0) || !(lev>0) || isNaN(makerP) || isNaN(takerP)){
+        ["notional","makerFee","takerFee","rtMM","rtTT","rtMT","feeOnMargin","totalFees"].forEach(id=>$(id).textContent='—');
+        $("makerPct").textContent = pct(makerP);
+        $("takerPct").textContent = pct(takerP);
+        return;
+      }
+      const notional = margin * lev;
+      const makerFee = notional * (makerP/100);
+      const takerFee = notional * (takerP/100);
+
+      $("makerPct").textContent = pct(makerP);
+      $("takerPct").textContent = pct(takerP);
+      $("notional").textContent = fmt(notional);
+      $("makerFee").textContent = fmt(makerFee) + `  (per side)`;
+      $("takerFee").textContent = fmt(takerFee) + `  (per side)`;
+      $("rtMM").textContent = fmt(makerFee*2) + `  (≈ ${( (makerP*2).toFixed(4)) }% of notional)`;
+      $("rtTT").textContent = fmt(takerFee*2) + `  (≈ ${( (takerP*2).toFixed(4)) }% of notional)`;
+      $("rtMT").textContent = fmt(makerFee + takerFee) + `  (≈ ${ (makerP + takerP).toFixed(4)}% of notional)`;
+      $("totalFees").textContent = fmt((makerFee + takerFee)*2) + `  (entry + exit, Maker+Taker)`;
+      $("feeOnMargin").textContent = ((takerFee/margin)*100).toFixed(4) + "%";
+    }
+
+    $("calc").addEventListener('click', calc);
+    ["margin","lev","maker","taker"].forEach(id=>$(id).addEventListener('input', calc));
+  </script>
+</body>
+</html>
