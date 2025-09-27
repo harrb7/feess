@@ -66,6 +66,16 @@
           <button class="btn" id="calc">Calculate</button>
         </div>
 
+        <!-- New input for target profit -->
+        <div class="col-6">
+          <label for="target">Target % Profit</label>
+          <div class="row">
+            <input id="target" type="number" min="0" step="0.01" placeholder="e.g. 2" />
+            <span class="suffix">%</span>
+          </div>
+          <p class="note">Expected gain percentage on notional.</p>
+        </div>
+
         <div class="col-12">
           <div class="out-card">
             <div class="kpi">
@@ -100,12 +110,16 @@
               <div>Fees as % of <em>margin</em> (Taker one-way)</div>
               <div class="mono" id="feeOnMargin">—</div>
             </div>
+            <div class="kpi">
+              <div>Net Profit After Fees</div>
+              <div class="big mono" id="netProfit">—</div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <p class="note" style="margin-top:14px">Formulae: <br>Notional = margin × leverage.<br>MakerFee = notional × (maker% / 100).<br>TakerFee = notional × (taker% / 100).<br>Round-trip = fee × 2. Total fees = makerFee + takerFee (entry + exit).</p>
+    <p class="note" style="margin-top:14px">Formulae: <br>Notional = margin × leverage.<br>MakerFee = notional × (maker% / 100).<br>TakerFee = notional × (taker% / 100).<br>Round-trip = fee × 2. Total fees = makerFee + takerFee (entry + exit).<br>Net Profit = (Notional × target%) − (MakerFee + TakerFee).</p>
   </div>
 
   <script>
@@ -118,12 +132,15 @@
       const lev = parseFloat($("lev").value);
       const makerP = parseFloat($("maker").value);
       const takerP = parseFloat($("taker").value);
+      const target = parseFloat($("target").value);
+
       if(!(margin>0) || !(lev>0) || isNaN(makerP) || isNaN(takerP)){
-        ["notional","makerFee","takerFee","rtMM","rtTT","rtMT","feeOnMargin","totalFees"].forEach(id=>$(id).textContent='—');
+        ["notional","makerFee","takerFee","rtMM","rtTT","rtMT","feeOnMargin","totalFees","netProfit"].forEach(id=>$(id).textContent='—');
         $("makerPct").textContent = pct(makerP);
         $("takerPct").textContent = pct(takerP);
         return;
       }
+
       const notional = margin * lev;
       const makerFee = notional * (makerP/100);
       const takerFee = notional * (takerP/100);
@@ -138,10 +155,18 @@
       $("rtMT").textContent = fmt(makerFee + takerFee) + `  (≈ ${ (makerP + takerP).toFixed(4)}% of notional)`;
       $("totalFees").textContent = fmt((makerFee + takerFee)*2) + `  (entry + exit, Maker+Taker)`;
       $("feeOnMargin").textContent = ((takerFee/margin)*100).toFixed(4) + "%";
+
+      if(target > 0){
+        const grossProfit = notional * (target/100);
+        const netProfit = grossProfit - (makerFee + takerFee);
+        $("netProfit").textContent = fmt(netProfit);
+      } else {
+        $("netProfit").textContent = "—";
+      }
     }
 
     $("calc").addEventListener('click', calc);
-    ["margin","lev","maker","taker"].forEach(id=>$(id).addEventListener('input', calc));
+    ["margin","lev","maker","taker","target"].forEach(id=>$(id).addEventListener('input', calc));
   </script>
 </body>
 </html>
