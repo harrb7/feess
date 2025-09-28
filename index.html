@@ -15,8 +15,9 @@
     .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
     .col-6{grid-column:span 6}
     .col-4{grid-column:span 4}
+    .col-3{grid-column:span 3}
     .col-12{grid-column:span 12}
-    @media(max-width:800px){.col-6,.col-4{grid-column:span 12}}
+    @media(max-width:800px){.col-6,.col-4,.col-3{grid-column:span 12}}
     label{display:block;font-weight:600;margin:0 0 6px}
     input{width:100%;padding:14px 14px;border-radius:12px;border:1px solid #1f2b3b;background:#0e1520;color:var(--text);outline:none}
     input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,130,246,.25)}
@@ -36,44 +37,49 @@
 <body>
   <div class="wrap">
     <h1 class="title">Leverage Fee Calculator</h1>
-    <p class="subtitle">Enter your <strong>leverage (x)</strong> and <strong>margin amount</strong>. We calculate maker (0.01%) and taker (0.04%) fees on the <em>notional</em> = margin × leverage.</p>
+    <p class="subtitle">Enter your <strong>account balance</strong>, <strong>leverage (x)</strong> and <strong>margin amount</strong>. We calculate fees, risk %, and net profit.</p>
 
     <div class="card">
       <div class="grid">
+        <div class="col-6">
+          <label for="account">Account Balance</label>
+          <div class="row">
+            <input id="account" type="number" min="0" step="0.01" placeholder="e.g. 500" />
+            <span class="suffix">USDT</span>
+          </div>
+        </div>
         <div class="col-6">
           <label for="margin">Margin Entered</label>
           <div class="row">
             <input id="margin" type="number" min="0" step="0.01" placeholder="e.g. 100" />
             <span class="suffix">USDT</span>
           </div>
-          <p class="note">Money you put into the position.</p>
         </div>
+
         <div class="col-6">
           <label for="lev">Leverage (×)</label>
           <input id="lev" type="number" min="1" step="0.1" placeholder="e.g. 10" />
-          <p class="note">Position size = margin × leverage.</p>
         </div>
 
-        <div class="col-4">
+        <div class="col-3">
           <label for="maker">Maker fee %</label>
           <input id="maker" type="number" min="0" step="0.0001" value="0.01" />
         </div>
-        <div class="col-4">
+        <div class="col-3">
           <label for="taker">Taker fee %</label>
           <input id="taker" type="number" min="0" step="0.0001" value="0.04" />
         </div>
-        <div class="col-4" style="display:flex;align-items:flex-end">
-          <button class="btn" id="calc">Calculate</button>
-        </div>
 
-        <!-- New input for target profit -->
         <div class="col-6">
-          <label for="target">Target % Profit</label>
+          <label for="profit">Profit % (price move)</label>
           <div class="row">
-            <input id="target" type="number" min="0" step="0.01" placeholder="e.g. 2" />
+            <input id="profit" type="number" min="0" step="0.01" placeholder="e.g. 5" />
             <span class="suffix">%</span>
           </div>
-          <p class="note">Expected gain percentage on notional.</p>
+        </div>
+
+        <div class="col-12" style="display:flex;justify-content:flex-end;align-items:flex-end">
+          <button class="btn" id="calc">Calculate</button>
         </div>
 
         <div class="col-12">
@@ -83,90 +89,73 @@
               <div class="big mono" id="notional">—</div>
             </div>
             <div class="kpi">
-              <div>Maker fee (entry or exit) <span class="tag" id="makerPct">0.01%</span></div>
+              <div>Risk % (notional ÷ account)</div>
+              <div class="big mono" id="riskPct">—</div>
+            </div>
+            <div class="kpi">
+              <div>Maker fee (per side) <span class="tag" id="makerPct">0.01%</span></div>
               <div class="big mono" id="makerFee">—</div>
             </div>
             <div class="kpi">
-              <div>Taker fee (entry or exit) <span class="tag" id="takerPct">0.04%</span></div>
+              <div>Taker fee (per side) <span class="tag" id="takerPct">0.04%</span></div>
               <div class="big mono" id="takerFee">—</div>
             </div>
             <div class="kpi">
-              <div>Round-trip cost (Maker + Maker)</div>
-              <div class="mono" id="rtMM">—</div>
-            </div>
-            <div class="kpi">
-              <div>Round-trip cost (Taker + Taker)</div>
-              <div class="mono" id="rtTT">—</div>
-            </div>
-            <div class="kpi">
-              <div>Round-trip cost (Maker entry + Taker exit)</div>
-              <div class="mono" id="rtMT">—</div>
-            </div>
-            <div class="kpi">
-              <div>Total fees (Maker + Taker both sides)</div>
+              <div>Total fees (round-trip, Maker+Taker)</div>
               <div class="big mono" id="totalFees">—</div>
             </div>
             <div class="kpi">
-              <div>Fees as % of <em>margin</em> (Taker one-way)</div>
-              <div class="mono" id="feeOnMargin">—</div>
-            </div>
-            <div class="kpi">
-              <div>Net Profit After Fees</div>
+              <div>Net Profit (after fees)</div>
               <div class="big mono" id="netProfit">—</div>
             </div>
           </div>
         </div>
       </div>
     </div>
-
-    <p class="note" style="margin-top:14px">Formulae: <br>Notional = margin × leverage.<br>MakerFee = notional × (maker% / 100).<br>TakerFee = notional × (taker% / 100).<br>Round-trip = fee × 2. Total fees = makerFee + takerFee (entry + exit).<br>Net Profit = (Notional × target%) − (MakerFee + TakerFee).</p>
   </div>
 
   <script>
     const $ = (id)=>document.getElementById(id);
-    function fmt(n){ if(isNaN(n)) return "—"; return new Intl.NumberFormat(undefined,{style:'currency',currency:'USD',maximumFractionDigits:6}).format(n); }
-    function pct(n){ if(isNaN(n)) return "—"; return n.toFixed(4)+"%"; }
+    function fmt(n){ if(isNaN(n)) return "—"; return new Intl.NumberFormat(undefined,{style:'currency',currency:'USD',maximumFractionDigits:2}).format(n); }
+    function pct(n){ if(isNaN(n)) return "—"; return n.toFixed(2)+"%"; }
 
     function calc(){
+      const account = parseFloat($("account").value);
       const margin = parseFloat($("margin").value);
       const lev = parseFloat($("lev").value);
       const makerP = parseFloat($("maker").value);
       const takerP = parseFloat($("taker").value);
-      const target = parseFloat($("target").value);
+      const profitPct = parseFloat($("profit").value);
 
-      if(!(margin>0) || !(lev>0) || isNaN(makerP) || isNaN(takerP)){
-        ["notional","makerFee","takerFee","rtMM","rtTT","rtMT","feeOnMargin","totalFees","netProfit"].forEach(id=>$(id).textContent='—');
-        $("makerPct").textContent = pct(makerP);
-        $("takerPct").textContent = pct(takerP);
+      if(!(margin>0) || !(lev>0) || !(account>0) || isNaN(makerP) || isNaN(takerP)){
+        ["notional","makerFee","takerFee","totalFees","riskPct","netProfit"].forEach(id=>$(id).textContent='—');
         return;
       }
 
       const notional = margin * lev;
       const makerFee = notional * (makerP/100);
       const takerFee = notional * (takerP/100);
+      const totalFees = (makerFee + takerFee); // entry + exit mixed
+      const riskPct = (notional / account) * 100;
+
+      let netProfit = NaN;
+      if(profitPct>0){
+        const grossProfit = notional * (profitPct/100);
+        netProfit = grossProfit - totalFees;
+      }
 
       $("makerPct").textContent = pct(makerP);
       $("takerPct").textContent = pct(takerP);
       $("notional").textContent = fmt(notional);
-      $("makerFee").textContent = fmt(makerFee) + `  (per side)`;
-      $("takerFee").textContent = fmt(takerFee) + `  (per side)`;
-      $("rtMM").textContent = fmt(makerFee*2) + `  (≈ ${( (makerP*2).toFixed(4)) }% of notional)`;
-      $("rtTT").textContent = fmt(takerFee*2) + `  (≈ ${( (takerP*2).toFixed(4)) }% of notional)`;
-      $("rtMT").textContent = fmt(makerFee + takerFee) + `  (≈ ${ (makerP + takerP).toFixed(4)}% of notional)`;
-      $("totalFees").textContent = fmt((makerFee + takerFee)*2) + `  (entry + exit, Maker+Taker)`;
-      $("feeOnMargin").textContent = ((takerFee/margin)*100).toFixed(4) + "%";
-
-      if(target > 0){
-        const grossProfit = notional * (target/100);
-        const netProfit = grossProfit - (makerFee + takerFee);
-        $("netProfit").textContent = fmt(netProfit);
-      } else {
-        $("netProfit").textContent = "—";
-      }
+      $("riskPct").textContent = pct(riskPct);
+      $("makerFee").textContent = fmt(makerFee);
+      $("takerFee").textContent = fmt(takerFee);
+      $("totalFees").textContent = fmt(totalFees);
+      $("netProfit").textContent = isNaN(netProfit) ? "—" : fmt(netProfit);
     }
 
     $("calc").addEventListener('click', calc);
-    ["margin","lev","maker","taker","target"].forEach(id=>$(id).addEventListener('input', calc));
+    ["account","margin","lev","maker","taker","profit"].forEach(id=>$(id).addEventListener('input', calc));
   </script>
 </body>
 </html>
